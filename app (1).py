@@ -168,7 +168,10 @@ for idx, row in df.iterrows():
         <div class="flight-card">
             <h3 style="color:white; margin-bottom:6px;">{row['Flight_No']}</h3>
             <p style="color:#cbd5e1; margin:0;">Aircraft: {row['AC_Type']}</p>
-            <p style="color:#cbd5e1; margin:0;">Pilot Exp: {row['Pilot_Experience_Hours']} hrs</p>
+            <p style="color:#cbd5e1; margin:0;">
+    Pilot Exp: {row['Pilot_Hours_Total']} hrs (Last 30d: {row['Pilot_Hours_Last30']} hrs)
+</p>
+
             <p style="color:#cbd5e1; margin:0;">Maint: {row['Last_Maintenance_Days_Ago']} days ago</p>
 
             <p style="margin-top:10px;">
