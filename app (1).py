@@ -1,56 +1,62 @@
-# app.py - Upgraded Pre-Flight Safety Check UI
+# app.py - Option D: Corporate Aero Blue Theme (Production-style)
 import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib, os, re
 import plotly.express as px, plotly.graph_objects as go
 from io import BytesIO
+from datetime import datetime
 from fpdf import FPDF
 
-# ---------- Page config ----------
-st.set_page_config(page_title="Pre-Flight Safety Check — AI", layout="wide")
+# ---------------- Page config ----------------
+st.set_page_config(page_title="Pre-Flight Safety Check — Corporate", layout="wide")
 
-# ---------- CSS / Styling ----------
-st.markdown("""
-<style>
-:root{
-  --accent1: #0ea5a3;
-  --accent2: #0f172a;
-  --card-bg: #ffffff;
-  --muted: #6b7280;
-}
-body { background-color: #f7fafc; }
-.header {
-  background: linear-gradient(90deg,var(--accent2) 0%, var(--accent1) 100%);
-  color: white;
-  padding: 28px;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(14,20,42,0.06);
-}
-.kpi {
-  background: var(--card-bg);
-  padding: 14px;
-  border-radius: 10px;
-  box-shadow: 0 8px 20px rgba(14,20,42,0.04);
-  text-align:center;
-}
-.kpi h3 { margin: 4px 0; font-size:20px; }
-.kpi p { margin: 0; color: var(--muted); font-size:13px; }
-.card {
-  background: var(--card-bg);
-  padding: 12px;
-  border-radius:10px;
-  box-shadow: 0 6px 18px rgba(14,20,42,0.04);
-}
-.small { color: var(--muted); font-size:13px; }
-.flight-row { padding:8px; margin-bottom:6px; border-radius:8px; }
-.badge-high { background:#fee2e2; color:#991b1b; padding:6px 10px; border-radius:8px; font-weight:600; }
-.badge-med { background:#ffedd5; color:#92400e; padding:6px 10px; border-radius:8px; font-weight:600; }
-.badge-low { background:#ecfdf5; color:#065f46; padding:6px 10px; border-radius:8px; font-weight:600; }
-</style>
-""", unsafe_allow_html=True)
+# ---------------- CSS - Corporate Aero Blue Theme ----------------
+st.markdown(
+    """
+    <style>
+    :root{
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --muted: #6b7280;
+      --accent: #0b7285; /* deep aqua */
+      --accent-2: #0ea5a3; /* teal */
+      --danger: #ef4444;
+      --warn: #f59e0b;
+      --safe: #10b981;
+    }
+    body { background: var(--bg); }
+    .hero {
+      background: linear-gradient(90deg, rgba(11,114,133,1) 0%, rgba(14,165,163,1) 100%);
+      color: white;
+      padding: 28px;
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(11,114,133,0.08);
+      margin-bottom: 18px;
+    }
+    .hero h1 { margin: 0; font-weight:700; }
+    .muted { color: var(--muted); font-size:13px; }
+    .card {
+      background: var(--card);
+      border-radius: 10px;
+      padding: 12px;
+      box-shadow: 0 8px 20px rgba(16,24,40,0.04);
+    }
+    .kpi { text-align:center; padding:12px; border-radius:8px; }
+    .kpi h3 { margin:6px 0 2px 0; }
+    .kpi p { margin:0; color:var(--muted); font-size:13px; }
+    .flight-card { padding:10px; border-radius:8px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; }
+    .badge { padding:6px 10px; border-radius:8px; font-weight:600; font-size:13px; }
+    .badge-high { background:#fff1f2; color:var(--danger); border:1px solid rgba(239,68,68,0.08); }
+    .badge-med { background:#fffbeb; color:var(--warn); border:1px solid rgba(245,158,11,0.08); }
+    .badge-low { background:#ecfdf5; color:var(--safe); border:1px solid rgba(16,185,129,0.06); }
+    .small { color:var(--muted); font-size:13px; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
-# ---------- Utilities (same logic as before) ----------
+# ---------------- Utilities ----------------
 STOPWORDS = {'the','and','a','an','in','on','at','of','to','for','with','from','by','is','was','were','has','had','that','this','it','as','be','are','or','but'}
 def clean_text_simple(s):
     if pd.isna(s): return ""
@@ -122,49 +128,51 @@ def risk_level_from_score(s):
     return "Low"
 
 RECOMM = {
-    'Pilot Hours': "Reassign duty or add an additional experienced co-pilot.",
-    'Maintenance': "Ground aircraft for deep maintenance inspection before flight.",
-    'Engine Vibration': "Comprehensive engine inspection (bearings, mounts).",
-    'Fuel Imbalance': "Resolve fuel distribution and sensors; postpone if persistent.",
-    'Weather': "Delay or reroute flight based on updated MET forecasts."
+    'Pilot Hours': "Reassign duty or add an experienced co-pilot.",
+    'Maintenance': "Ground aircraft for detailed maintenance inspection.",
+    'Engine Vibration': "Perform comprehensive engine checks.",
+    'Fuel Imbalance': "Resolve fuel distribution before departure.",
+    'Weather': "Delay or reroute based on latest forecasts."
 }
 
-# ---------- Header ----------
-st.markdown(f"""<div class="header">
-  <div style="display:flex;justify-content:space-between;align-items:center">
+# ---------------- Hero / Header ----------------
+st.markdown(f"""
+<div class="hero">
+  <div style="display:flex; justify-content:space-between; align-items:center;">
     <div>
-      <h1 style="margin:0">✈️ Pre-Flight Safety Check — AI Assisted</h1>
-      <div class="small" style="margin-top:6px">Batch upload → Hybrid risk scoring (rules + optional ML) → Actionable recommendations</div>
+      <h1>✈️ Pre-Flight Safety Check</h1>
+      <div class="small">Corporate demo • Hybrid checks (rules + optional ML) • Automated recommendations</div>
     </div>
     <div style="text-align:right">
-      <div style="font-size:14px;color:rgba(255,255,255,0.9)">Demo / School Project</div>
-      <div style="font-size:12px;color:rgba(255,255,255,0.8)">{pd.Timestamp.now().strftime('%Y-%m-%d %H:%M')}</div>
+      <div class="small">Status: <strong>Demo</strong></div>
+      <div class="small">{datetime.now().strftime('%Y-%m-%d %H:%M')}</div>
     </div>
   </div>
-</div>""", unsafe_allow_html=True)
+</div>
+""", unsafe_allow_html=True)
 
-# ---------- Sidebar ----------
+# ---------------- Sidebar ----------------
 with st.sidebar:
     st.header("Upload & Settings")
-    uploaded = st.file_uploader("Upload flights CSV", type=['csv'])
+    uploaded = st.file_uploader("Upload flights CSV (batch)", type=['csv'], help="CSV with one row per flight.")
     st.markdown("---")
     st.caption("Optional: place risk_model.pkl in app root to enable ML augmentation.")
     rule_w = st.slider("Rule weight (hybrid)", 0.0, 1.0, 0.6, 0.1)
     st.markdown("---")
     st.markdown("**Recommended CSV columns** (case sensitive):")
-    st.markdown("`Flight_No,AC_Type,Registration,Date,Pilot_ID,Pilot_Hours_Last_7_Days,Pilot_Experience_Hours,Last_Maintenance_Days_Ago,Weather,Engine_Vibration_mm_s,Fuel_Imbalance_pct,Passenger_Load_pct`")
+    st.text("Flight_No,AC_Type,Registration,Date,Pilot_ID,Pilot_Hours_Last_7_Days,Pilot_Experience_Hours,Last_Maintenance_Days_Ago,Weather,Engine_Vibration_mm_s,Fuel_Imbalance_pct,Passenger_Load_pct")
     st.markdown("---")
-    if st.button("Generate demo CSV (200 rows)"):
-        # create demo file quickly (small version)
+    if st.button("Generate demo CSV (120 rows)"):
+        # small demo generator to help testing quickly
         import numpy as np, pandas as pd
         from datetime import datetime, timedelta
-        np.random.seed(1)
+        np.random.seed(2)
         ac_types = ['A320','A330','B737','B777','B787','A350','Embraer E190']
         airports = ['DEL','BOM','BLR','MAA','CCU','HYD','PNQ','GOI']
         rows=[]
         for i in range(120):
             rows.append({
-                "Flight_No":f"DD{100+i}",
+                "Flight_No":f"DF{1000+i}",
                 "AC_Type":np.random.choice(ac_types),
                 "Registration":f"VT-{np.random.choice(list('ABCDEFG'))}{np.random.randint(100,999)}",
                 "Date":(datetime.now()-pd.to_timedelta(np.random.randint(0,5),'D')).strftime('%Y-%m-%d'),
@@ -178,30 +186,32 @@ with st.sidebar:
                 "Passenger_Load_pct":int(np.clip(np.random.normal(85,10),10,100))
             })
         df_demo = pd.DataFrame(rows)
-        df_demo.to_csv("demo_flights.csv", index=False)
-        st.success("Saved demo_flights.csv in working directory — download and upload to test.")
+        df_demo.to_csv("demo_flights_corporate.csv", index=False)
+        st.success("Saved demo_flights_corporate.csv in working directory. Download & upload to test.")
 
-# ---------- Main ----------
+# ---------------- If no file uploaded, prompt ----------------
 if uploaded is None:
-    st.info("Upload a flights CSV to begin (or use demo CSV generator in sidebar).")
+    st.info("Upload a flights CSV (or use the demo CSV generator in the sidebar).")
     st.stop()
 
-# Load
+# ---------------- Load CSV ----------------
 try:
     df = pd.read_csv(uploaded)
 except Exception as e:
-    st.error("Failed to read CSV: " + str(e)); st.stop()
+    st.error("Failed to read CSV: " + str(e))
+    st.stop()
 
-# clean
+# ensure columns & clean
 if 'Summary' in df.columns:
     df['Summary_clean'] = df['Summary'].apply(clean_text_simple)
 else:
     df['Summary_clean'] = ""
 
-# compute rule score
-df['_Rule_Score'] = df.apply(compute_rule_score, axis=1)
+# compute rule scores
+with st.spinner("Computing rule-based risk scores..."):
+    df['_Rule_Score'] = df.apply(compute_rule_score, axis=1)
 
-# ML scoring if available
+# optional ML scoring
 ml_present = False
 if risk_ml is not None:
     numeric_cols = ['Pilot_Hours_Last_7_Days','Pilot_Experience_Hours','Last_Maintenance_Days_Ago','Engine_Vibration_mm_s','Fuel_Imbalance_pct','Passenger_Load_pct']
@@ -223,46 +233,48 @@ if ml_present:
     df['_Hybrid_Score'] = (rule_w * df['_Rule_Score']) + ((1-rule_w) * df['_ML_Score'])
 else:
     df['_Hybrid_Score'] = df['_Rule_Score']
+
 df['_Hybrid_Score'] = df['_Hybrid_Score'].round(1)
 df['_Risk_Level'] = df['_Hybrid_Score'].apply(risk_level_from_score)
 
-# layout: left = list, middle = charts, right = details
+# ---------------- Layout: Left list | Center overview | Right detail ----------------
 left, center, right = st.columns([2,3,2])
 
-# LEFT: list of flights with quick badges
+# LEFT: Flight list (card-like)
 with left:
-    st.markdown("<div class='card'><h4 style='margin:6px 0'>Flights</h4>", unsafe_allow_html=True)
-    # small search filter
-    search = st.text_input("Search Flight_No / AC_Type", value="")
-    show_n = st.number_input("Show top N", min_value=5, max_value=500, value=20, step=5)
+    st.markdown("<div class='card'><h4 style='margin:4px 0'>Flights</h4>", unsafe_allow_html=True)
+    q = st.text_input("Filter Flight_No / AC_Type", "")
+    limit = st.number_input("Show top N", min_value=5, max_value=500, value=20, step=5)
     df_list = df.copy()
-    if search.strip():
-        df_list = df_list[df_list.astype(str).apply(lambda row: row.str.contains(search, case=False).any(), axis=1)]
-    df_list = df_list.sort_values('_Hybrid_Score', ascending=False).head(show_n)
-    for i, r in df_list.iterrows():
-        risk = r['_Risk_Level']
-        badge = f"<span class='badge-low'>LOW</span>"
-        if risk=="High": badge = f"<span class='badge-high'>HIGH</span>"
-        elif risk=="Medium": badge = f"<span class='badge-med'>MED</span>"
-        st.markdown(f"<div class='flight-row card' style='display:flex;justify-content:space-between;align-items:center'><div><b>{r.get('Flight_No','-')}</b>  <div class='small'>{r.get('AC_Type','')} • {r.get('Registration','')}</div></div><div style='text-align:right'>{badge}<div class='small' style='margin-top:6px'>{r['_Hybrid_Score']} pts</div></div></div>", unsafe_allow_html=True)
+    if q.strip():
+        mask = df_list.astype(str).apply(lambda r: r.str.contains(q, case=False).any(), axis=1)
+        df_list = df_list[mask]
+    df_list = df_list.sort_values("_Hybrid_Score", ascending=False).head(limit)
+    for idx, r in df_list.iterrows():
+        lvl = r['_Risk_Level']
+        badge_cls = "badge-low" if lvl=="Low" else ("badge-med" if lvl=="Medium" else "badge-high")
+        st.markdown(
+            f"<div class='flight-card'><div><b>{r.get('Flight_No','-')}</b><div class='small'>{r.get('AC_Type','')}, {r.get('Registration','')}</div></div>"
+            f"<div style='text-align:right'><div class='{badge_cls} badge'>{lvl}</div><div class='small' style='margin-top:6px'>{r['_Hybrid_Score']} pts</div></div></div>",
+            unsafe_allow_html=True
+        )
     st.markdown("</div>", unsafe_allow_html=True)
 
-# CENTER: KPIs + charts
+# CENTER: KPIs and charts
 with center:
-    st.markdown("<div class='card'><h4 style='margin:6px 0'>Overview</h4>", unsafe_allow_html=True)
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Total Flights", len(df), delta=None)
-    c2.metric("High Risk", int((df['_Risk_Level']=='High').sum()), delta=None)
-    c3.metric("Avg Hybrid Score", f"{df['_Hybrid_Score'].mean():.1f}", delta=None)
+    st.markdown("<div class='card'><h4 style='margin:4px 0'>Overview</h4>", unsafe_allow_html=True)
+    k1, k2, k3 = st.columns(3)
+    k1.markdown(f"<div class='kpi'><h3>{len(df)}</h3><p>Total Flights</p></div>", unsafe_allow_html=True)
+    k2.markdown(f"<div class='kpi'><h3 style='color:var(--danger)'>{int((df['_Risk_Level']=='High').sum())}</h3><p>High Risk</p></div>", unsafe_allow_html=True)
+    k3.markdown(f"<div class='kpi'><h3 style='color:var(--accent)'>{df['_Hybrid_Score'].mean():.1f}</h3><p>Average Hybrid Score</p></div>", unsafe_allow_html=True)
     st.markdown("---")
-    # risk distribution
+    # Risk distribution
     fig = px.histogram(df, x='_Risk_Level', color='_Risk_Level',
                        category_orders={'_Risk_Level':['Low','Medium','High']},
                        color_discrete_map={'Low':'#10b981','Medium':'#f59e0b','High':'#ef4444'},
                        title="Risk Level Distribution")
     fig.update_layout(margin=dict(t=30,b=10,l=10,r=10), height=320, showlegend=False)
     st.plotly_chart(fig, use_container_width=True)
-    # scatter: score vs maintenance days
     if 'Last_Maintenance_Days_Ago' in df.columns:
         fig2 = px.scatter(df, x='Last_Maintenance_Days_Ago', y='_Hybrid_Score', color='_Risk_Level',
                           color_discrete_map={'Low':'#10b981','Medium':'#f59e0b','High':'#ef4444'},
@@ -270,41 +282,35 @@ with center:
         st.plotly_chart(fig2, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-# RIGHT: details for selected flight + gauge
+# RIGHT: Selected flight details + gauge + PDF
 with right:
-    st.markdown("<div class='card'><h4 style='margin:6px 0'>Selected Flight</h4>", unsafe_allow_html=True)
-    # selection
+    st.markdown("<div class='card'><h4 style='margin:4px 0'>Selected Flight</h4>", unsafe_allow_html=True)
     if 'Flight_No' in df.columns:
-        sel = st.selectbox("Select Flight", df['Flight_No'].astype(str).tolist())
-        row = df[df['Flight_No'].astype(str)==sel].iloc[0]
+        sel = st.selectbox("Select flight", df['Flight_No'].astype(str).tolist())
+        row = df[df['Flight_No'].astype(str) == sel].iloc[0]
     else:
         row = df.iloc[0]
-    st.write(f"**{row.get('Flight_No','-')}** • {row.get('AC_Type','-')} • {row.get('Registration','-')}")
-    st.write(f"<div class='small'>Date: {row.get('Date','-')} • Pilot: {row.get('Pilot_ID','-')}</div>", unsafe_allow_html=True)
+    st.write(f"**{row.get('Flight_No','-')}**  •  {row.get('AC_Type','-')}  •  {row.get('Registration','-')}")
+    st.write(f"<div class='small'>Date: {row.get('Date','-')}  • Pilot: {row.get('Pilot_ID','-')}</div>", unsafe_allow_html=True)
     st.markdown("---")
-    # gauge
-    score = float(row['_Hybrid_Score'])
+    # Gauge
+    val = float(row['_Hybrid_Score'])
     gauge = go.Figure(go.Indicator(
         mode="gauge+number",
-        value=score,
-        domain={'x': [0, 1], 'y': [0, 1]},
+        value=val,
         gauge={
-            'axis': {'range': [0, 100]},
-            'bar': {'color': "#0ea5a3"},
-            'steps': [
-                {'range': [0, 35], 'color': '#ecfdf5'},
-                {'range': [35, 65], 'color': '#fffbeb'},
-                {'range': [65, 100], 'color': '#fff1f2'}
-            ],
+            'axis': {'range': [0,100]},
+            'bar': {'color': "#0b7285"},
+            'steps':[ {'range':[0,35],'color':'#ecfdf5'}, {'range':[35,65],'color':'#fffbeb'}, {'range':[65,100],'color':'#fff1f2'} ],
             'threshold': {'line': {'color': "red", 'width': 4}, 'thickness': 0.75, 'value': 65}
         },
         title={'text': "Hybrid Risk Score"}
     ))
-    gauge.update_layout(height=260, margin=dict(t=10,b=10,l=10,r=10))
+    gauge.update_layout(margin=dict(t=10,b=10,l=10,r=10), height=260)
     st.plotly_chart(gauge, use_container_width=True)
     st.markdown("---")
     st.subheader("Triggered Checks")
-    issues=[]
+    issues = []
     ph = float(row.get('Pilot_Hours_Last_7_Days',0) or 0)
     if ph>45: issues.append(("Pilot Hours", ph, RECOMM.get('Pilot Hours')))
     m = float(row.get('Last_Maintenance_Days_Ago',0) or 0)
@@ -316,12 +322,12 @@ with right:
     w = row.get('Weather','')
     if weather_severity_score(w)>0: issues.append(("Weather", w, RECOMM.get('Weather')))
     if issues:
-        for t,v,rec in issues:
+        for t, v, rec in issues:
             st.markdown(f"**{t}**: {v}  \n→ *{rec}*")
     else:
         st.success("No immediate rule-based issues detected.")
     st.markdown("---")
-    # download single flight PDF
+    # PDF creation
     def create_pdf(rowdict, issues_list):
         pdf = FPDF()
         pdf.add_page()
@@ -340,16 +346,16 @@ with right:
         pdf.output(out)
         out.seek(0)
         return out
-    if st.button("📄 Download Flight PDF"):
-        pdf = create_pdf(row, issues)
-        st.download_button("Download PDF", data=pdf, file_name=f"report_{row.get('Flight_No','flight')}.pdf", mime="application/pdf")
+    if st.button("📄 Generate Flight PDF"):
+        pdf_bytes = create_pdf(row, issues)
+        st.download_button("Download PDF", data=pdf_bytes, file_name=f"report_{row.get('Flight_No','flight')}.pdf", mime="application/pdf")
     st.markdown("</div>", unsafe_allow_html=True)
 
-# FOOTER: processed table and download
-st.markdown("<div class='card' style='margin-top:18px;padding:12px'>", unsafe_allow_html=True)
-st.markdown("### Processed results (first 50 rows)")
+# ---------------- Footer: processed table + download ----------------
+st.markdown("<div style='margin-top:18px' class='card'>", unsafe_allow_html=True)
+st.markdown("### Processed results (preview)")
 display_cols = [c for c in df.columns if c not in ['Summary','Summary_clean']]
-st.dataframe(df[display_cols].head(50), height=320)
+st.dataframe(df[display_cols].head(50), height=300)
 csv_bytes = df.to_csv(index=False).encode('utf-8')
 st.download_button("⬇️ Download processed results (CSV)", data=csv_bytes, file_name="safety_check_results.csv", mime="text/csv")
 st.markdown("</div>", unsafe_allow_html=True)
