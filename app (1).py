@@ -1,208 +1,169 @@
-# ==========================================================
-#   Pre-Flight Safety Dashboard — Premium Dark UI (Option C)
-#   100% Streamlit Cloud–Safe + Professional Bluebook Style
-# ==========================================================
-
 import streamlit as st
 import pandas as pd
 import numpy as np
-import joblib, os, re
-import plotly.express as px
-from datetime import datetime
 
-# ----------- PAGE CONFIG -----------
-st.set_page_config(
-    page_title="AI Pre-Flight Safety",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# --------------------------------------------------------
+# PAGE CONFIG
+# --------------------------------------------------------
+st.set_page_config(page_title="AI Pre-Flight Safety Dashboard", layout="wide")
 
-# ----------- SAFE DARK THEME CSS -----------
+# --------------------------------------------------------
+# CUSTOM CSS
+# --------------------------------------------------------
 st.markdown("""
 <style>
-
-html, body, [class*="css"] {
-    font-family: 'Inter', sans-serif;
-}
-
-:root {
-    --bg-color: #0f172a;
-    --card-bg: #1e293b;
-    --accent: #38bdf8;
-    --text-light: #e2e8f0;
-    --text-dim: #94a3b8;
-    --shadow: rgba(0,0,0,0.45);
-}
-
-/* Gradient header */
-.header-box {
-    background: linear-gradient(90deg, #1e293b 0%, #075985 100%);
-    padding: 26px;
-    border-radius: 16px;
-    box-shadow: 0 6px 18px var(--shadow);
-    margin-bottom: 20px;
-}
-
-/* Flight card styling */
-.flight-card {
-    background: var(--card-bg);
-    padding: 18px;
+.card {
+    background: linear-gradient(135deg,#0f172a,#1e293b);
+    padding: 22px;
     border-radius: 14px;
-    box-shadow: 0 0 25px rgba(0,0,0,0.25);
-    transition: 0.25s;
-    border: 1px solid rgba(255,255,255,0.05);
-}
-
-.flight-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 0 35px rgba(0,0,0,0.5);
-    border-color: rgba(255,255,255,0.25);
-}
-
-/* Risk badges */
-.badge {
-    padding: 4px 10px;
-    border-radius: 8px;
-    font-size: 12px;
-    font-weight: 600;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+    margin-bottom: 18px;
     color: white;
 }
-.badge-low { background: #10b981; }
-.badge-med { background: #f59e0b; }
-.badge-high { background: #ef4444; }
-
+.card h3 {
+    margin: 0;
+    font-size: 20px;
+}
+.card small {
+    color: #94a3b8;
+}
+.expand-box {
+    background: #f8fafc;
+    padding: 16px;
+    border-radius: 12px;
+    margin-top: 10px;
+    border: 1px solid #e2e8f0;
+}
+.kpi-box {
+    background: white;
+    padding: 14px;
+    border-radius: 12px;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.1);
+    text-align: center;
+}
 </style>
 """, unsafe_allow_html=True)
 
-
-# ----------- SMALL UTILS -----------
-def risk_label(score):
-    if score >= 65: return "High", "badge-high"
-    if score >= 35: return "Medium", "badge-med"
-    return "Low", "badge-low"
-
-
-# ----------- HEADER -----------
-st.markdown(f"""
-<div class="header-box">
-    <h1 style="color:white; margin:0;">✈️ AI-Assisted Pre-Flight Safety Dashboard</h1>
-    <p style="color:#cbd5e1; margin:0;">
-        Modern aviation diagnostic panel • Upload → View Cards → Click for Deep Analysis
-    </p>
-</div>
-""", unsafe_allow_html=True)
-
-
-# ----------- SIDEBAR -----------
+# --------------------------------------------------------
+# SIDEBAR
+# --------------------------------------------------------
 with st.sidebar:
-    st.header("Upload Flight Data")
-    uploaded = st.file_uploader("Upload CSV", type=["csv"])
+    st.title("📂 Upload Flight Data")
+    file = st.file_uploader("Upload CSV file", type="csv")
 
-    st.markdown("---")
-    st.subheader("Hybrid Scoring Weight")
-    rule_w = st.slider("Rule Weight", 0.0, 1.0, 0.6, 0.1)
+# --------------------------------------------------------
+# FUNCTIONS
+# --------------------------------------------------------
 
-    st.markdown("---")
-    if st.button("Generate Sample CSV"):
-        sample = pd.DataFrame([
-            {"Flight_No":"AI101","AC_Type":"A320","Pilot_Experience_Hours":3500,
-             "Pilot_Hours_Last_7_Days":40,"Last_Maintenance_Days_Ago":30,
-             "Weather":"Clear","Engine_Vibration_mm_s":1.2,"Fuel_Imbalance_pct":1.0},
-            
-            {"Flight_No":"AI202","AC_Type":"B737","Pilot_Experience_Hours":250,
-             "Pilot_Hours_Last_7_Days":60,"Last_Maintenance_Days_Ago":180,
-             "Weather":"Thunderstorm","Engine_Vibration_mm_s":3.2,"Fuel_Imbalance_pct":7.0},
+def compute_risk(row):
+    score = 0
 
-            {"Flight_No":"AI330","AC_Type":"A330","Pilot_Experience_Hours":900,
-             "Pilot_Hours_Last_7_Days":52,"Last_Maintenance_Days_Ago":120,
-             "Weather":"Rain","Engine_Vibration_mm_s":2.5,"Fuel_Imbalance_pct":0.5},
-        ])
-        sample.to_csv("demo_flights.csv", index=False)
-        st.success("Sample CSV saved as demo_flights.csv → Download and upload!")
-    st.markdown("---")
+    # Pilot hours (fatigue)
+    if row["Pilot_Hours_Last30"] > 55:
+        score += 25
+    elif row["Pilot_Hours_Last30"] > 45:
+        score += 15
 
+    # Weather impact
+    w = str(row["Weather"]).lower()
+    if "rain" in w:
+        score += 15
+    elif "cloud" in w:
+        score += 8
 
-# ----------- IF NO DATA -----------
-if uploaded is None:
-    st.info("Upload a CSV file to display flight cards.")
+    # Brake warning
+    if str(row["Brake_Status"]).strip().upper() == "WARNING":
+        score += 25
+
+    # Fuel low
+    if row["Fuel_Quantity"] < 7000:
+        score += 15
+
+    # Hydraulic pressure abnormal
+    if row["Hydraulic_Pressure"] < 3000:
+        score += 10
+
+    return min(score, 100)
+
+def risk_label(score):
+    if score >= 60:
+        return "High"
+    elif score >= 30:
+        return "Medium"
+    return "Low"
+
+# --------------------------------------------------------
+# MAIN
+# --------------------------------------------------------
+st.title("✈️ AI-Assisted Pre-Flight Safety Dashboard")
+st.write("Upload flight data to view automated safety checks and detailed insights.")
+
+if not file:
+    st.info("Please upload a CSV file to continue.")
     st.stop()
 
+# Load data
+df = pd.read_csv(file)
 
-# ----------- LOAD CSV -----------
-df = pd.read_csv(uploaded)
+# Compute risk
+df["Risk_Score"] = df.apply(compute_risk, axis=1)
+df["Risk_Level"] = df["Risk_Score"].apply(risk_label)
 
-# Compute rule score (simplified)
-def compute_rule(row):
-    sc = 0
-    if row.get("Pilot_Hours_Last_7_Days",0) > 55: sc += 25
-    if row.get("Pilot_Experience_Hours",0) < 300: sc += 20
-    if row.get("Last_Maintenance_Days_Ago",0) > 150: sc += 30
-    if row.get("Engine_Vibration_mm_s",0) > 3: sc += 15
-    if row.get("Fuel_Imbalance_pct",0) > 6: sc += 10
-    return min(sc, 100)
+# --------------------------------------------------------
+# KPI SECTION
+# --------------------------------------------------------
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.markdown(f"<div class='kpi-box'><h3>{len(df)}</h3><small>Total Flights</small></div>", unsafe_allow_html=True)
+with col2:
+    st.markdown(f"<div class='kpi-box'><h3>{(df['Risk_Level']=='High').sum()}</h3><small>High Risk</small></div>", unsafe_allow_html=True)
+with col3:
+    st.markdown(f"<div class='kpi-box'><h3>{(df['Risk_Level']=='Medium').sum()}</h3><small>Medium Risk</small></div>", unsafe_allow_html=True)
 
-df["Rule_Score"] = df.apply(compute_rule, axis=1)
-df["Hybrid_Score"] = (rule_w * df["Rule_Score"])
-df["Hybrid_Score"] = df["Hybrid_Score"].round(1)
+st.write("---")
 
-# ----------- CARD GRID DISPLAY -----------
-st.subheader("📋 Flight Overview — Click Any Card")
+# --------------------------------------------------------
+# FLIGHT CARDS
+# --------------------------------------------------------
+st.subheader("🛫 Flight Overview")
 
-cols = st.columns(3)
+for i, row in df.iterrows():
 
-selected_flight = None
-
-for idx, row in df.iterrows():
-    col = cols[idx % 3]
-    risk, badge_class = risk_label(row["Hybrid_Score"])
-
-    with col:
-        if st.button(
-            f"🛫 {row['Flight_No']}",
-            key=f"btn_{idx}",
-            help="Click to open detailed view"
-        ):
-            selected_flight = row
-
-        st.markdown(f"""
-        <div class="flight-card">
-            <h3 style="color:white; margin-bottom:6px;">{row['Flight_No']}</h3>
-            <p style="color:#cbd5e1; margin:0;">Aircraft: {row['AC_Type']}</p>
-            <p style="color:#cbd5e1; margin:0;">
-    Pilot Exp: {row['Pilot_Hours_Total']} hrs (Last 30d: {row['Pilot_Hours_Last30']} hrs)
-</p>
-
-            <p style="color:#cbd5e1; margin:0;">
-    Maintenance: {row['Maintenance_Status']} • Last Done: {row['Last_Maintenance_Date']}
-</p>
-
-
-            <p style="margin-top:10px;">
-                <span class="badge {badge_class}">{risk}: {row['Hybrid_Score']}</span>
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-
-
-# ----------- DETAIL PANEL -----------
-if selected_flight is not None:
-    st.markdown("---")
-    st.subheader(f"🔍 Detailed Diagnostics — {selected_flight['Flight_No']}")
-
-    c1, c2 = st.columns([1.2,1])
-
-    with c1:
-        st.write("### Key Parameters")
-        st.json(selected_flight.to_dict())
-
-    with c2:
-        st.write("### Risk Breakdown")
-        fig = px.bar(
-            x=["Hybrid Score", "Rule Score"],
-            y=[selected_flight["Hybrid_Score"], selected_flight["Rule_Score"]],
-            color=["Hybrid Score", "Rule Score"],
-            labels={"x": "Score Type", "y": "Score"},
-            title="Score Breakdown",
-            height=350
+    with st.container():
+        st.markdown(
+            f"""
+            <div class="card">
+                <h3>{row['Flight_No']} • {row['AC_Type']}</h3>
+                <small>{row['Airport_Dep']} → {row['Airport_Arr']} | Date: {row['Date']}</small>
+                <p style='margin-top:8px;'>Risk Score: <b>{row['Risk_Score']}</b> — 
+                <span style='color:#f87171' if row['Risk_Level']=="High" else "#facc15">{row['Risk_Level']}</span></p>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
-        st.plotly_chart(fig, use_container_width=True)
+
+        with st.expander("🔍 View Full Flight Details"):
+            st.markdown(f"""
+            <div class='expand-box'>
+            <h4>Flight Details</h4>
+            • **Registration:** {row['Registration']}  
+            • **Pilot ID:** {row['Pilot_ID']}  
+            • **Pilot Hours (30 days):** {row['Pilot_Hours_Last30']}  
+            • **Pilot Total Hours:** {row['Pilot_Hours_Total']}  
+
+            ### Technical Readings  
+            • **Fuel Quantity:** {row['Fuel_Quantity']}  
+            • **Oil Pressure:** {row['Oil_Pressure']}  
+            • **Hydraulic Pressure:** {row['Hydraulic_Pressure']}  
+            • **Brake Status:** {row['Brake_Status']}  
+
+            ### Other  
+            • **Weather:** {row['Weather']}  
+            • **ATC Clearance:** {row['ATC_Clearance']}  
+            • **Maintenance Remarks:** {row['Maintenance_Remarks']}
+            </div>
+            """, unsafe_allow_html=True)
+
+st.write("---")
+st.success("Dashboard Generated Successfully ✔️")
+
