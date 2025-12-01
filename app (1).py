@@ -27,13 +27,20 @@ st.markdown("""
 .card small {
     color: #94a3b8;
 }
+
+/* FIXED — EXPANDER CONTENT BOX NOW DARK & READABLE */
 .expand-box {
-    background: #f8fafc;
-    padding: 16px;
+    background: #1e293b !important;
+    padding: 20px;
     border-radius: 12px;
     margin-top: 10px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid #334155;
+    color: #e2e8f0 !important;
 }
+.expand-box h4, .expand-box h3, .expand-box p, .expand-box li {
+    color: #e2e8f0 !important;
+}
+
 .kpi-box {
     background: white;
     padding: 14px;
@@ -58,28 +65,23 @@ with st.sidebar:
 def compute_risk(row):
     score = 0
 
-    # Pilot hours (fatigue)
     if row["Pilot_Hours_Last30"] > 55:
         score += 25
     elif row["Pilot_Hours_Last30"] > 45:
         score += 15
 
-    # Weather impact
     w = str(row["Weather"]).lower()
     if "rain" in w:
         score += 15
     elif "cloud" in w:
         score += 8
 
-    # Brake warning
     if str(row["Brake_Status"]).strip().upper() == "WARNING":
         score += 25
 
-    # Fuel low
     if row["Fuel_Quantity"] < 7000:
         score += 15
 
-    # Hydraulic pressure abnormal
     if row["Hydraulic_Pressure"] < 3000:
         score += 10
 
@@ -102,10 +104,7 @@ if not file:
     st.info("Please upload a CSV file to continue.")
     st.stop()
 
-# Load data
 df = pd.read_csv(file)
-
-# Compute risk
 df["Risk_Score"] = df.apply(compute_risk, axis=1)
 df["Risk_Level"] = df["Risk_Score"].apply(risk_label)
 
@@ -130,13 +129,17 @@ st.subheader("🛫 Flight Overview")
 for i, row in df.iterrows():
 
     with st.container():
+        risk_color = "#f87171" if row["Risk_Level"]=="High" else ("#facc15" if row["Risk_Level"]=="Medium" else "#4ade80")
+
         st.markdown(
             f"""
             <div class="card">
                 <h3>{row['Flight_No']} • {row['AC_Type']}</h3>
                 <small>{row['Airport_Dep']} → {row['Airport_Arr']} | Date: {row['Date']}</small>
-                <p style='margin-top:8px;'>Risk Score: <b>{row['Risk_Score']}</b> — 
-                <span style='color:#f87171' if row['Risk_Level']=="High" else "#facc15">{row['Risk_Level']}</span></p>
+                <p style='margin-top:8px;'>
+                    Risk Score: <b>{row['Risk_Score']}</b> — 
+                    <span style="color:{risk_color};">{row['Risk_Level']}</span>
+                </p>
             </div>
             """,
             unsafe_allow_html=True,
@@ -166,4 +169,3 @@ for i, row in df.iterrows():
 
 st.write("---")
 st.success("Dashboard Generated Successfully ✔️")
-
